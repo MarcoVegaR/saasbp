@@ -18,6 +18,7 @@ nav:
   - Course:
       - Construyendo Nuestro SaaS - Fase 0: course/construyendo-nuestro-saas-fase-0.md
       - Construyendo Nuestro SaaS - Fase 1: course/construyendo-nuestro-saas-fase-1.md
+      - Construyendo Nuestro SaaS - Fase 2: course/construyendo-nuestro-saas-fase-2.md
   - Plans:
       - SaaS Boilerplate Implementation Plan: plans/saas-boilerplate-implementation-plan.md
 

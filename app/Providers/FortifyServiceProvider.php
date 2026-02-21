@@ -82,6 +82,16 @@ class FortifyServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($request->session()->get('login.id'));
         });
 
+        RateLimiter::for('ott-generate', function (Request $request) {
+            $userId = (string) ($request->user()?->getAuthIdentifier() ?? 'guest');
+
+            return Limit::perMinute(10)->by($userId.'|'.$request->ip());
+        });
+
+        RateLimiter::for('ott-consume', function (Request $request) {
+            return Limit::perMinute(20)->by((string) $request->ip());
+        });
+
         RateLimiter::for('login', function (Request $request) {
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
 

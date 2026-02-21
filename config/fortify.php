@@ -2,6 +2,14 @@
 
 use Laravel\Fortify\Features;
 
+$mfaFeature = env('FEATURES_MFA', false)
+    ? Features::twoFactorAuthentication([
+        'confirm' => true,
+        'confirmPassword' => true,
+        // 'window' => 0
+    ])
+    : null;
+
 return [
 
     /*
@@ -143,15 +151,11 @@ return [
     |
     */
 
-    'features' => [
+    'features' => array_values(array_filter([
         Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
-        Features::twoFactorAuthentication([
-            'confirm' => true,
-            'confirmPassword' => true,
-            // 'window' => 0
-        ]),
-    ],
+        $mfaFeature,
+    ])),
 
 ];
