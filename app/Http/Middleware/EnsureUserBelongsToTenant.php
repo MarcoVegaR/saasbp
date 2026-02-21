@@ -24,7 +24,7 @@ class EnsureUserBelongsToTenant
             abort(403, 'Tenant membership is required.');
         }
 
-        if (! $user->tenants()->whereKey($tenant->getKey())->exists()) {
+        if (! $user->tenants()->whereKey($tenant->getKey())->wherePivot('status', 'active')->exists()) {
             abort(403, 'You are not a member of this tenant.');
         }
 

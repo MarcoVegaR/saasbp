@@ -1,55 +1,105 @@
 # Phase 3 — Tenants & Memberships
 
 ## Goal
-User can create a tenant, invite members, switch between tenants.
+Enable a full tenant lifecycle on central app: create tenant, invite members, accept invitation, and switch safely between tenants.
+
+## Devil's-advocate adjustments (what can go wrong if we don't fix now)
+
+1. `tenant_user` already exists from Phase 2. Re-creating it in Phase 3 will break migrations.
+2. `setPermissionsTeamId()` belongs to RBAC context (Phase 4). Hard-coupling it now creates sequence risk.
+3. Tenancy is host-driven (`tenant.localhost`), not session-driven. Session `current_tenant_id` is auxiliary only.
+4. Filament resources are already planned in Phase 10. Implementing them here duplicates scope.
+
+## Non-negotiables
+
+- Central-only contract remains: create/invite/switch endpoints live on `app.<APP_DOMAIN>`.
+- Tenant routes remain protected by `auth + verified + tenant.member` (from Phase 2).
+- No raw invite or OTT tokens in logs.
+- Single-DB contract from Phase 1 remains unchanged.
 
 ## Tasks
-- `TenantUser` pivot: `tenant_id`, `user_id`, `role`, `status` (active/invited/suspended), `invited_by`, `invited_at`, `joined_at`.
-- Tenant creation wizard (Inertia page): name → subdomain check → creates tenant + sets user as owner.
-- Invitation flow: send signed email link → recipient registers or logs in → joins tenant.
-- `switch-tenant` endpoint: validates membership → sets `current_tenant_id` in session → calls `setPermissionsTeamId($tenantId)` → `app(PermissionRegistrar::class)->forgetCachedPermissions()` → redirects to tenant subdomain.
-- Switch UI: dropdown in top nav (all user's tenants + "Create new").
-- Filament: tenant list, membership table, impersonate/switch.
+
+- **Evolve** existing `tenant_user` pivot with an incremental migration:
+  - add `status` (`invited|active|suspended`),
+  - add `invited_by`, `invited_at`, `joined_at`.
+- Tenant creation wizard (Inertia): name -> slug/subdomain validation -> create tenant + domain + owner membership (`role=owner`, `status=active`).
+- Invitation flow:
+  - owner/admin invites by email + role,
+  - send signed link,
+  - recipient logs in/registers then accepts,
+  - membership becomes `active` idempotently.
+- `switch-tenant` endpoint (central): validates membership, stores `current_tenant_id` for central UX, redirects to tenant host.
+- Top-nav tenant switcher: list all user tenants + active marker + "Create new" CTA.
+- Share `userTenants` and `currentTenantId` from Inertia middleware.
 
 ## Acceptance
-- Full flow E2E: register → create tenant → invite → accept → switch.
-- Switching to a tenant the user is NOT a member of → 403.
+
+- E2E: register/login -> create tenant -> invite -> accept -> switch.
+- Switch to non-member tenant => 403.
+- Reusing invite link after acceptance => rejected (410/422) and does not mutate membership.
+- Existing member invited again => idempotent behavior (no duplicate membership rows).
 
 ## Playbook
 
-**Deliverables:** `tenant_user` migration, `TenantController`, `InvitationService`, `SwitchTenantController`, `TenantSwitchTest`, `MembershipInvitationTest`, tenant UI pages.
+**Deliverables:**
+
+- `alter_tenant_user_for_membership_lifecycle` migration (do not recreate table).
+- `TenantController` (central create/store).
+- `TenantInvitationController` (`store`, `accept`).
+- `SwitchTenantController`.
+- `MemberInvitedNotification` (signed URL).
+- Inertia pages/components: tenant create wizard + tenant switch dropdown.
+- Tests: `TenantCreationTest`, `MembershipInvitationTest`, `TenantSwitchTest`.
 
 **Steps:**
-1. Create `tenant_user` pivot migration: `tenant_id`, `user_id`, `role`, `status`, `invited_by`, `invited_at`, `joined_at`.
-2. Create `TenantController` (central): store wizard (name → slug availability check → create tenant + add domains row + seed owner role).
-3. Create `InvitationService`: generate signed URL (7-day TTL), dispatch `MemberInvitedNotification`.
-4. Create `InvitationController@accept`: validate signature, create/update `tenant_user` row, redirect to tenant.
-5. Create `SwitchTenantController@switch`:
-   ```php
-   // Validate tenant_user membership
-   // Set session
-   session(['current_tenant_id' => $tenant->id]);
-   // Reset Spatie team context + cache
-   setPermissionsTeamId($tenant->id);
-   app(PermissionRegistrar::class)->forgetCachedPermissions();
-   // Redirect
-   return redirect("https://{$tenant->slug}." . env('APP_DOMAIN'));
-   ```
-6. Create tenant nav dropdown component (React): lists all user's tenants from `$page.props.userTenants`; shows active badge.
-7. Share `userTenants` in `HandleInertiaRequests::share`.
-8. Add Filament resources: `TenantResource`, `MembershipResource`.
-9. Write `TenantSwitchTest` and `MembershipInvitationTest`.
+
+1. Add migration to alter `tenant_user` with `status`, `invited_by`, `invited_at`, `joined_at`.
+2. Update `User::tenants()` and `Tenant::users()` to include new pivot fields.
+3. Create central routes for tenant creation, invite, accept, and switch.
+4. Implement `TenantController@store`:
+   - validate name/slug,
+   - reject reserved slugs (`app`, `www`, central domains),
+   - create tenant + domain row,
+   - attach creator as owner and active member.
+5. Implement invitation issuing:
+   - validate inviter role,
+   - create/update pending membership,
+   - dispatch notification with signed URL.
+6. Implement invitation accept:
+   - validate signature + expiration,
+   - require authenticated user email to match invitation target,
+   - activate membership, set `joined_at`, redirect to tenant host.
+7. Implement `SwitchTenantController@switch`:
+   - verify membership exists and status is `active`,
+   - set `session(['current_tenant_id' => $tenant->id])` for central context,
+   - if `PERMISSION_TEAMS=true`, call `setPermissionsTeamId()` and `forgetCachedPermissions()`,
+   - redirect to `https://{tenant-domain}`.
+8. Add top-nav tenant dropdown driven by shared `userTenants`.
+9. Add policy/authorization checks so only owner/admin can invite.
+10. Write tests:
+    - `TenantCreationTest` (success + reserved slug + duplicate slug race),
+    - `MembershipInvitationTest` (invite, accept, replay, wrong-user accept),
+    - `TenantSwitchTest` (member switch ok, outsider 403).
+11. Run full CI.
 
 ## Verification
+
 ```bash
-php artisan test --filter TenantSwitch
-php artisan test --filter MembershipInvitation
+php artisan test --filter TenantCreationTest
+php artisan test --filter MembershipInvitationTest
+php artisan test --filter TenantSwitchTest
+make ci
 ```
 
 ## Risks & mitigations
-- ⚠ Slug uniqueness race condition → unique DB constraint + retry on `UniqueConstraintViolation`.
-- ⚠ Invitation link reuse after acceptance → check `status = active` before accepting again (idempotent).
-- ⚠ Permission cache stale after switch → `forgetCachedPermissions()` is Spatie's documented API; do not use `clearPermissionsCache()` (internal).
+
+- ⚠ Migration collision (`tenant_user` already exists) -> use alter migration only.
+- ⚠ Slug/domain race condition -> DB unique constraints + graceful retry message.
+- ⚠ Invitation replay -> one-time accept semantics + status checks.
+- ⚠ Wrong-account acceptance -> enforce invited email match against authenticated user.
+- ⚠ Cross-phase RBAC coupling -> gate team-context calls behind `PERMISSION_TEAMS` and finalize in Phase 4.
+- ⚠ Scope creep with Filament -> keep Filament tenant/member CRUD in Phase 10.
 
 ## Rollback
-Remove `SwitchTenantController`; revert `tenant_user` migration; remove invitation routes.
+
+Remove Phase 3 routes/controllers, revert Phase 3 alter-migration, and remove invitation notification + UI components.

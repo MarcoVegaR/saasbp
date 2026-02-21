@@ -24,3 +24,12 @@ make ci
 - Session cookie policy is environment-aware:
   - local (`localhost`): `SESSION_DOMAIN=null`
   - production: `SESSION_DOMAIN=.yourdomain.com`
+
+## Tenancy lifecycle guardrails (Phase 3)
+
+- Tenant lifecycle endpoints (create, invite, accept, switch) stay central-only on `app.<APP_DOMAIN>`.
+- Membership checks for tenant access and switching require `tenant_user.status = active`.
+- Invitation tokens are one-time and hashed at rest; acceptance must enforce signed URL + invited email match.
+- Spatie team-context switching remains gated by `PERMISSION_TEAMS` (`config('permission.teams')`).
+- Tenant host convention is strict: central = `app.<APP_DOMAIN>`, tenant = `<tenant-slug>.<APP_DOMAIN>` (not `<tenant-slug>.app.<APP_DOMAIN>`).
+- Cross-origin redirects triggered from Inertia requests must use `Inertia::location(...)` (avoid Axios network/CORS failures).
