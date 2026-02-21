@@ -10,7 +10,9 @@ import { useTwoFactorAuth } from '@/hooks/use-two-factor-auth';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import type { BreadcrumbItem } from '@/types';
-import { disable, enable, show } from '@/routes/two-factor';
+
+const TWO_FACTOR_SETTINGS_PATH = '/settings/two-factor';
+const TWO_FACTOR_AUTHENTICATION_ENDPOINT = '/user/two-factor-authentication';
 
 type Props = {
     requiresConfirmation?: boolean;
@@ -20,7 +22,7 @@ type Props = {
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Two-Factor Authentication',
-        href: show.url(),
+        href: TWO_FACTOR_SETTINGS_PATH,
     },
 ];
 
@@ -70,7 +72,10 @@ export default function TwoFactor({
                             />
 
                             <div className="relative inline">
-                                <Form {...disable.form()}>
+                                <Form
+                                    action={TWO_FACTOR_AUTHENTICATION_ENDPOINT}
+                                    method="delete"
+                                >
                                     {({ processing }) => (
                                         <Button
                                             variant="destructive"
@@ -103,7 +108,10 @@ export default function TwoFactor({
                                     </Button>
                                 ) : (
                                     <Form
-                                        {...enable.form()}
+                                        action={
+                                            TWO_FACTOR_AUTHENTICATION_ENDPOINT
+                                        }
+                                        method="post"
                                         onSuccess={() =>
                                             setShowSetupModal(true)
                                         }

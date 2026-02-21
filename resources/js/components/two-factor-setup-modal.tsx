@@ -21,7 +21,8 @@ import { useClipboard } from '@/hooks/use-clipboard';
 import { OTP_MAX_LENGTH } from '@/hooks/use-two-factor-auth';
 import AlertError from './alert-error';
 import { Spinner } from './ui/spinner';
-import { confirm } from '@/routes/two-factor';
+
+const TWO_FACTOR_CONFIRM_ENDPOINT = '/user/confirmed-two-factor-authentication';
 
 function GridScanIcon() {
     return (
@@ -156,7 +157,8 @@ function TwoFactorVerificationStep({
 
     return (
         <Form
-            {...confirm.form()}
+            action={TWO_FACTOR_CONFIRM_ENDPOINT}
+            method="post"
             onSuccess={() => onClose()}
             resetOnError
             resetOnSuccess
