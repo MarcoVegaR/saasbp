@@ -16,9 +16,14 @@ class CreateTenantsTable extends Migration
         Schema::create('tenants', function (Blueprint $table) {
             $table->string('id')->primary();
 
-            // your custom columns may go here
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->string('plan')->default('free');
+            $table->string('status')->default('active');
+            $table->jsonb('settings')->nullable();
 
             $table->timestamps();
+            // Required by stancl's virtual data-column trait for unknown tenant attributes.
             $table->json('data')->nullable();
         });
     }

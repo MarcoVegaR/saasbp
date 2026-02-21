@@ -1,6 +1,6 @@
 # Phase 1 — Multi-tenancy Foundation
 
-**Status:** 🔄 Next
+**Status:** ✅ Completed
 
 ## Goal
 Enforce a verified central/tenant boundary: correct single-DB config, route loading, domain setup, middleware contract, and data isolation proven by tests.

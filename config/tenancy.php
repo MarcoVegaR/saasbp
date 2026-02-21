@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Models\Tenant;
 use Stancl\Tenancy\Database\Models\Domain;
-use Stancl\Tenancy\Database\Models\Tenant;
 
 return [
     'tenant_model' => Tenant::class,
@@ -19,6 +19,9 @@ return [
     'central_domains' => [
         '127.0.0.1',
         'localhost',
+        'app.localhost',
+        env('APP_DOMAIN', 'localhost'),
+        'app.'.env('APP_DOMAIN', 'localhost'),
     ],
 
     /**
@@ -28,7 +31,8 @@ return [
      * To configure their behavior, see the config keys below.
      */
     'bootstrappers' => [
-        Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper::class,
+        // Single-database mode: do not switch DB connections per tenant.
+        // Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\CacheTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\FilesystemTenancyBootstrapper::class,
         Stancl\Tenancy\Bootstrappers\QueueTenancyBootstrapper::class,

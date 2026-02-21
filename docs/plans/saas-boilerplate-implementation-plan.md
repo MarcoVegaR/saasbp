@@ -129,7 +129,7 @@ Never log passwords, tokens, TOTP secrets, card data. Always include `correlatio
 | Phase | Name | File | Status |
 |---|---|---|---|
 | 0 | Project scaffolding & packages | [phase-0.md](phase-0.md) | ✅ Done |
-| 1 | Multi-tenancy foundation | [phase-1.md](phase-1.md) | 🔄 Next |
+| 1 | Multi-tenancy foundation | [phase-1.md](phase-1.md) | ✅ Done |
 | 2 | Auth & account | [phase-2.md](phase-2.md) | ⏳ |
 | 3 | Tenants & memberships | [phase-3.md](phase-3.md) | ⏳ |
 | 4 | RBAC (Spatie teams) | [phase-4.md](phase-4.md) | ⏳ |

@@ -179,8 +179,10 @@ FILESYSTEM_DISK=s3
 
 ```dotenv
 APP_DOMAIN=localhost
-SESSION_DOMAIN=.${APP_DOMAIN}
+SESSION_DOMAIN=null
 ```
+
+> En local con `localhost`, usamos cookie host-only (`SESSION_DOMAIN=null`) para evitar rechazos de dominio inválido en algunos navegadores (ej: Firefox) y errores 419 por CSRF.
 
 ### Feature flags
 
@@ -203,8 +205,8 @@ En `config/session.php` se dejó el dominio de cookie usando fallback desde `APP
 
 ¿Por qué?
 
-- Para soportar mejor subdominios en un SaaS multi-tenant.
-- Evita problemas de sesión entre `app.dominio.com` y `tenant.dominio.com`.
+- En producción, permite compartir sesión entre subdominios cuando defines `SESSION_DOMAIN=.tuempresa.com`.
+- En local con `localhost`, conviene override a `SESSION_DOMAIN=null` (host-only) para compatibilidad de navegador.
 
 ---
 
