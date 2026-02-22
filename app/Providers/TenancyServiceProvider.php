@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Http\Middleware\TenantPermissionMiddleware;
+use App\Listeners\SeedTenantRbac;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -25,7 +27,9 @@ class TenancyServiceProvider extends ServiceProvider
         return [
             // Tenant events
             Events\CreatingTenant::class => [],
-            Events\TenantCreated::class => [],
+            Events\TenantCreated::class => [
+                SeedTenantRbac::class,
+            ],
             Events\SavingTenant::class => [],
             Events\TenantSaved::class => [],
             Events\UpdatingTenant::class => [],
@@ -111,6 +115,7 @@ class TenancyServiceProvider extends ServiceProvider
                         'web',
                         Middleware\PreventAccessFromCentralDomains::class,
                         Middleware\InitializeTenancyByDomainOrSubdomain::class,
+                        TenantPermissionMiddleware::class,
                     ])
                     ->group(base_path('routes/tenant.php'));
             }

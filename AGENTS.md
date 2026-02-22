@@ -33,3 +33,11 @@ make ci
 - Spatie team-context switching remains gated by `PERMISSION_TEAMS` (`config('permission.teams')`).
 - Tenant host convention is strict: central = `app.<APP_DOMAIN>`, tenant = `<tenant-slug>.<APP_DOMAIN>` (not `<tenant-slug>.app.<APP_DOMAIN>`).
 - Cross-origin redirects triggered from Inertia requests must use `Inertia::location(...)` (avoid Axios network/CORS failures).
+
+## RBAC guardrails (Phase 4)
+
+- Team context for Spatie permissions must be established by middleware (`TenantPermissionMiddleware`), not ad-hoc inside policies/controllers.
+- Team context must be reset on central requests to avoid stale permission leakage across requests.
+- Authorization decisions must require active membership (`tenant_user.status = active`) plus tenant-scoped permission checks.
+- Global `superadmin` bypass is gate/policy-level only; it must not bypass tenancy initialization or tenant membership middleware.
+- Tenant IDs are string/UUID; Spatie team context and schema must use string-compatible `team_id` columns.

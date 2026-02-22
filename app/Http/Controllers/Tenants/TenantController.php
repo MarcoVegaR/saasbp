@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Tenants;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
+use App\Support\Rbac\TenantRbacManager;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class TenantController extends Controller
         return Inertia::render('tenants/create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, TenantRbacManager $tenantRbacManager): RedirectResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
@@ -45,7 +46,7 @@ class TenantController extends Controller
 
         try {
             /** @var Tenant $tenant */
-            $tenant = DB::transaction(function () use ($validated, $slug, $domain, $user): Tenant {
+            $tenant = DB::transaction(function () use ($validated, $slug, $domain, $user, $tenantRbacManager): Tenant {
                 $tenant = Tenant::query()->create([
                     'id' => (string) Str::uuid(),
                     'name' => (string) $validated['name'],
@@ -62,6 +63,8 @@ class TenantController extends Controller
                     'status' => 'active',
                     'joined_at' => now(),
                 ]);
+
+                $tenantRbacManager->syncMembershipRole($user, $tenant, 'owner');
 
                 return $tenant;
             });

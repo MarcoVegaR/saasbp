@@ -24,3 +24,11 @@
 12. Spatie team-context switching is gated by `PERMISSION_TEAMS` via `config('permission.teams')`.
 13. Tenant host format is `<slug>.<APP_DOMAIN>` (never `<slug>.app.<APP_DOMAIN>`).
 14. Inertia-triggered cross-origin redirects must use `Inertia::location(...)`.
+
+### Phase 4 (RBAC)
+
+15. Team context is set for tenant requests by `TenantPermissionMiddleware` before authorization checks.
+16. Team context is reset on central requests to avoid stale permission leaks.
+17. Permission checks require active membership (`tenant_user.status = active`) in addition to role/permission assignment.
+18. Superadmin bypass lives in gate/policy layer only and does not bypass tenancy initialization/membership middleware.
+19. Spatie team columns are string-compatible (`team_id`) to match UUID/string tenant IDs.

@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Models\TenantInvitation;
 use App\Models\User;
 use App\Notifications\MemberInvitedNotification;
+use App\Support\Rbac\TenantRbacManager;
 use App\Support\Tenancy\TenantSsoUrlFactory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -108,8 +109,12 @@ class TenantInvitationController extends Controller
         return back()->with('status', 'tenant-invite-sent');
     }
 
-    public function accept(Request $request, TenantInvitation $invitation, TenantSsoUrlFactory $tenantSsoUrlFactory): RedirectResponse
-    {
+    public function accept(
+        Request $request,
+        TenantInvitation $invitation,
+        TenantSsoUrlFactory $tenantSsoUrlFactory,
+        TenantRbacManager $tenantRbacManager,
+    ): RedirectResponse {
         $user = $request->user();
 
         abort_unless($user instanceof User, 401);
@@ -126,7 +131,9 @@ class TenantInvitationController extends Controller
 
         abort_unless($tenant instanceof Tenant, 404);
 
-        DB::transaction(function () use ($invitation, $validated, $user, $tenant): void {
+        $assignedRole = 'member';
+
+        DB::transaction(function () use ($invitation, $validated, $user, $tenant, &$assignedRole): void {
             $lockedInvitation = TenantInvitation::query()
                 ->whereKey($invitation->getKey())
                 ->lockForUpdate()
@@ -153,17 +160,20 @@ class TenantInvitationController extends Controller
             if ($existingMembership instanceof Tenant) {
                 $existingRole = (string) data_get($existingMembership, 'pivot.role', 'member');
                 $joinedAt = data_get($existingMembership, 'pivot.joined_at');
+                $assignedRole = $existingRole === 'owner' ? 'owner' : (string) $lockedInvitation->role;
 
                 $user->tenants()->updateExistingPivot($tenant->getKey(), [
-                    'role' => $existingRole === 'owner' ? 'owner' : (string) $lockedInvitation->role,
+                    'role' => $assignedRole,
                     'status' => 'active',
                     'invited_by' => $lockedInvitation->invited_by,
                     'invited_at' => $lockedInvitation->created_at,
                     'joined_at' => $joinedAt ?? now(),
                 ]);
             } else {
+                $assignedRole = (string) $lockedInvitation->role;
+
                 $user->tenants()->attach($tenant->getKey(), [
-                    'role' => (string) $lockedInvitation->role,
+                    'role' => $assignedRole,
                     'status' => 'active',
                     'invited_by' => $lockedInvitation->invited_by,
                     'invited_at' => $lockedInvitation->created_at,
@@ -176,6 +186,8 @@ class TenantInvitationController extends Controller
             ])->save();
         });
 
+        $tenantRbacManager->syncMembershipRole($user, $tenant, $assignedRole);
+
         $request->session()->put('current_tenant_id', (string) $tenant->getKey());
 
         $payload = $tenantSsoUrlFactory->make($request, $user, $tenant);
@@ -185,6 +197,14 @@ class TenantInvitationController extends Controller
 
     private function canInvite(User $user, Tenant $tenant): bool
     {
+        if ($user->hasGlobalRole('superadmin')) {
+            return true;
+        }
+
+        if ($user->hasTenantPermission('members:invite', $tenant)) {
+            return true;
+        }
+
         $role = $user->tenants()
             ->whereKey($tenant->getKey())
             ->wherePivot('status', 'active')
